@@ -1,0 +1,2398 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StudyPal - AI驱动的学习助手</title>
+    <!-- Tailwind CSS v3 -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome -->
+    <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js"></script>
+    <!-- 统一的 Tailwind 配置 -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#3b82f6',
+                        secondary: '#60a5fa',
+                        dark: '#0f172a',
+                        darker: '#020617',
+                        light: '#f8fafc',
+                        'glass-bg': 'rgba(30, 41, 59, 0.7)',
+                        'glass-border': 'rgba(148, 163, 184, 0.2)'
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', 'sans-serif'],
+                        display: ['Montserrat', 'sans-serif']
+                    },
+                    animation: {
+                        'float': 'float 6s ease-in-out infinite',
+                        'shimmer': 'shimmer 3s infinite',
+                        'pulse-slow': 'pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite'
+                    },
+                    keyframes: {
+                        float: {
+                            '0%, 100%': { transform: 'translateY(0)' },
+                            '50%': { transform: 'translateY(-10px)' }
+                        },
+                        shimmer: {
+                            '0%': { backgroundPosition: '100% 0' },
+                            '100%': { backgroundPosition: '-100% 0' }
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .content-auto {
+                content-visibility: auto;
+            }
+            .glass-effect {
+                @apply bg-glass-bg backdrop-blur-lg border border-glass-border;
+            }
+            .premium-text {
+                @apply relative text-white;
+                text-shadow: 
+                    0 0 5px rgba(255, 255, 255, 0.5),
+                    0 0 10px rgba(255, 255, 255, 0.3),
+                    0 0 15px rgba(255, 255, 255, 0.1);
+            }
+            .premium-text::after {
+                content: attr(data-text);
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 100%;
+                height: 100%;
+                background: linear-gradient(
+                    90deg, 
+                    transparent 0%, 
+                    rgba(255, 255, 255, 0.4) 50%, 
+                    transparent 100%
+                );
+                background-size: 200% 100%;
+                background-position: 100% 0;
+                -webkit-background-clip: text;
+                background-clip: text;
+                color: transparent;
+                animation: shimmer 3s infinite;
+            }
+            .gradient-bg {
+                background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            }
+            .card-hover {
+                @apply transition-all duration-300 hover:shadow-lg hover:shadow-primary/20 hover:-translate-y-1;
+            }
+            .nav-link {
+                @apply flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-300;
+            }
+            .nav-link.active {
+                @apply bg-primary/10 text-primary;
+            }
+            .nav-link:not(.active) {
+                @apply text-gray-400 hover:bg-gray-800/50 hover:text-gray-200;
+            }
+        }
+    </style>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body class="bg-darker text-light min-h-screen overflow-x-hidden">
+    <!-- 加载动画 -->
+    <div id="loading" class="fixed inset-0 flex items-center justify-center bg-darker z-50">
+        <div class="flex flex-col items-center">
+            <div class="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+            <p class="mt-4 text-lg font-medium text-primary">加载中...</p>
+        </div>
+    </div>
+
+    <!-- 灵动岛 -->
+    <div class="fixed bottom-8 left-0 right-0 flex justify-center z-50 transition-transform duration-500" id="dynamic-island-container">
+        <div class="flex items-center justify-between px-6 py-3 rounded-full bg-[rgba(66,66,66,0.7)] backdrop-blur-md transition-all duration-300" id="dynamic-island">
+            <span class="text-white mr-3 transition-all duration-300" id="island-text">开始学习</span>
+            <div class="flex items-center justify-center w-6 h-6 rounded-full bg-primary text-white transition-all duration-300">+</div>
+        </div>
+    </div>
+
+    <!-- 主容器 -->
+    <div class="flex h-screen overflow-hidden">
+        <!-- 侧边导航栏 -->
+        <aside class="w-20 md:w-64 bg-dark border-r border-gray-800 flex flex-col transition-all duration-300">
+            <!-- Logo -->
+            <div class="p-4 flex items-center justify-center md:justify-start border-b border-gray-800">
+                <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-primary to-secondary flex items-center justify-center">
+                    <i class="fa fa-lightbulb-o text-white text-xl"></i>
+                </div>
+                <h1 class="ml-3 text-xl font-bold premium-text hidden md:block" data-text="StudyPal">StudyPal</h1>
+            </div>
+            
+            <!-- 导航菜单 -->
+            <nav class="flex-1 py-6 px-2 space-y-1 overflow-y-auto">
+                <a href="#dashboard" class="nav-link active" data-target="dashboard">
+                    <i class="fa fa-dashboard text-xl w-6 text-center"></i>
+                    <span class="hidden md:block">学习概览</span>
+                </a>
+                <a href="#questions" class="nav-link" data-target="questions">
+                    <i class="fa fa-list-alt text-xl w-6 text-center"></i>
+                    <span class="hidden md:block">题库管理</span>
+                </a>
+                <a href="#quiz" class="nav-link" data-target="quiz">
+                    <i class="fa fa-check-square-o text-xl w-6 text-center"></i>
+                    <span class="hidden md:block">刷题中心</span>
+                </a>
+                <a href="#flashcards" class="nav-link" data-target="flashcards">
+                    <i class="fa fa-clone text-xl w-6 text-center"></i>
+                    <span class="hidden md:block">闪卡学习</span>
+                </a>
+                <a href="#favorites" class="nav-link" data-target="favorites">
+                    <i class="fa fa-star text-xl w-6 text-center"></i>
+                    <span class="hidden md:block">收藏题目</span>
+                </a>
+                <a href="#wrong-questions" class="nav-link" data-target="wrong-questions">
+                    <i class="fa fa-exclamation-triangle text-xl w-6 text-center"></i>
+                    <span class="hidden md:block">错题集</span>
+                </a>
+                <a href="#analysis" class="nav-link" data-target="analysis">
+                    <i class="fa fa-bar-chart text-xl w-6 text-center"></i>
+                    <span class="hidden md:block">学习分析</span>
+                </a>
+            </nav>
+            
+            <!-- 用户信息 -->
+            <div class="p-4 border-t border-gray-800">
+                <div class="flex items-center">
+                    <div class="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
+                        <span class="font-medium">用</span>
+                    </div>
+                    <div class="ml-3 hidden md:block">
+                        <p class="text-sm font-medium">学习者</p>
+                        <p class="text-xs text-gray-400">专业版</p>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- 主内容区 -->
+        <div class="flex-1 flex flex-col overflow-hidden">
+            <!-- 顶部导航栏 -->
+            <header class="bg-dark border-b border-gray-800 z-10">
+                <div class="flex items-center justify-between p-4">
+                    <div class="flex items-center">
+                        <h2 id="page-title" class="text-xl font-semibold">学习概览</h2>
+                    </div>
+                    <div class="flex items-center space-x-4">
+                        <!-- 搜索框 -->
+                        <div class="relative hidden md:block">
+                            <input type="text" placeholder="搜索..." class="bg-gray-800 text-gray-300 rounded-lg pl-10 pr-4 py-2 w-64 focus:outline-none focus:ring-2 focus:ring-primary">
+                            <i class="fa fa-search absolute left-3 top-3 text-gray-500"></i>
+                        </div>
+                        
+                        <!-- 学习时间 -->
+                        <div class="relative hidden md:flex items-center bg-gray-800 rounded-lg px-3 py-2">
+                            <i class="fa fa-clock-o text-primary mr-2"></i>
+                            <span id="today-study-time" class="text-sm">今日 0分钟</span>
+                        </div>
+                        
+                        <!-- 通知 -->
+                        <button class="relative p-2 rounded-full hover:bg-gray-800 transition-colors">
+                            <i class="fa fa-bell text-xl"></i>
+                            <span class="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
+                        </button>
+                        
+                        <!-- 移动端菜单按钮 -->
+                        <button id="mobile-menu-btn" class="md:hidden p-2 rounded-full hover:bg-gray-800 transition-colors">
+                            <i class="fa fa-bars text-xl"></i>
+                        </button>
+                    </div>
+                </div>
+            </header>
+
+            <!-- 内容区域 -->
+            <main class="flex-1 overflow-y-auto bg-gradient-to-br from-darker to-dark p-6">
+                <!-- 学习概览 -->
+                <section id="dashboard" class="page-section active">
+                    <!-- 欢迎区域 -->
+                    <div class="mb-8 relative overflow-hidden rounded-2xl">
+                        <div class="absolute inset-0 bg-gradient-to-r from-primary/20 to-secondary/20"></div>
+                        <div class="relative z-10 p-8 md:p-12">
+                            <h1 class="text-3xl md:text-4xl font-bold premium-text mb-4" data-text="欢迎回来，学习者">欢迎回来，学习者</h1>
+                            <p class="text-gray-300 text-lg mb-6 max-w-2xl">继续你的学习之旅，距离你的目标还有 <span class="text-primary font-semibold">32%</span> 的路程。</p>
+                            <div class="flex flex-wrap gap-4">
+                                <button class="px-6 py-3 bg-primary hover:bg-primary/90 text-white rounded-lg transition-colors flex items-center gap-2">
+                                    <i class="fa fa-play"></i>
+                                    <span>继续学习</span>
+                                </button>
+                                <button class="px-6 py-3 bg-transparent border border-gray-600 hover:border-gray-400 text-white rounded-lg transition-colors flex items-center gap-2">
+                                    <i class="fa fa-bar-chart"></i>
+                                    <span>查看进度</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 统计卡片 -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                        <!-- 总学习时间 -->
+                        <div class="glass-effect rounded-xl p-6 card-hover">
+                            <div class="flex items-center justify-between mb-4">
+                                <h3 class="text-gray-400 font-medium">总学习时间</h3>
+                                <div class="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center">
+                                    <i class="fa fa-clock-o text-primary"></i>
+                                </div>
+                            </div>
+                            <div class="flex items-end justify-between">
+                                <div>
+                                    <p id="total-study-time" class="text-3xl font-bold">24.5小时</p>
+                                    <p class="text-green-500 text-sm mt-1 flex items-center">
+                                        <i class="fa fa-arrow-up mr-1"></i>
+                                        <span>较上周增长12.5%</span>
+                                    </p>
+                                </div>
+                                <div class="w-20 h-16">
+                                    <canvas id="time-chart"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- 已完成题目 -->
+                        <div class="glass-effect rounded-xl p-6 card-hover">
+                            <div class="flex items-center justify-between mb-4">
+                                <h3 class="text-gray-400 font-medium">已完成题目</h3>
+                                <div class="w-10 h-10 rounded-full bg-green-500/20 flex items-center justify-center">
+                                    <i class="fa fa-check-circle text-green-500"></i>
+                                </div>
+                            </div>
+                            <div class="flex items-end justify-between">
+                                <div>
+                                    <p id="completed-questions" class="text-3xl font-bold">128题</p>
+                                    <p class="text-green-500 text-sm mt-1 flex items-center">
+                                        <i class="fa fa-arrow-up mr-1"></i>
+                                        <span>本周完成32题</span>
+                                    </p>
+                                </div>
+                                <div class="w-20 h-16">
+                                    <canvas id="questions-chart"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- 正确率 -->
+                        <div class="glass-effect rounded-xl p-6 card-hover">
+                            <div class="flex items-center justify-between mb-4">
+                                <h3 class="text-gray-400 font-medium">正确率</h3>
+                                <div class="w-10 h-10 rounded-full bg-blue-500/20 flex items-center justify-center">
+                                    <i class="fa fa-trophy text-blue-500"></i>
+                                </div>
+                            </div>
+                            <div class="flex items-end justify-between">
+                                <div>
+                                    <p id="correct-rate" class="text-3xl font-bold">76%</p>
+                                    <p class="text-green-500 text-sm mt-1 flex items-center">
+                                        <i class="fa fa-arrow-up mr-1"></i>
+                                        <span>较上周提升5%</span>
+                                    </p>
+                                </div>
+                                <div class="w-20 h-16">
+                                    <canvas id="rate-chart"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- 记忆进度 -->
+                        <div class="glass-effect rounded-xl p-6 card-hover">
+                            <div class="flex items-center justify-between mb-4">
+                                <h3 class="text-gray-400 font-medium">记忆进度</h3>
+                                <div class="w-10 h-10 rounded-full bg-purple-500/20 flex items-center justify-center">
+                                    <i class="fa fa-brain text-purple-500"></i>
+                                </div>
+                            </div>
+                            <div class="flex items-end justify-between">
+                                <div>
+                                    <p id="memory-progress" class="text-3xl font-bold">68%</p>
+                                    <p class="text-yellow-500 text-sm mt-1 flex items-center">
+                                        <i class="fa fa-arrow-up mr-1"></i>
+                                        <span>需要复习12张闪卡</span>
+                                    </p>
+                                </div>
+                                <div class="w-20 h-16">
+                                    <canvas id="memory-chart"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 学习进度图表 -->
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+                        <!-- 学习时间趋势 -->
+                        <div class="glass-effect rounded-xl p-6 card-hover">
+                            <div class="flex items-center justify-between mb-6">
+                                <h3 class="text-xl font-semibold">学习时间趋势</h3>
+                                <div class="flex items-center space-x-2">
+                                    <button class="px-3 py-1 text-xs bg-gray-800 hover:bg-gray-700 rounded-lg transition-colors">周</button>
+                                    <button class="px-3 py-1 text-xs bg-primary text-white rounded-lg">月</button>
+                                    <button class="px-3 py-1 text-xs bg-gray-800 hover:bg-gray-700 rounded-lg transition-colors">年</button>
+                                </div>
+                            </div>
+                            <div class="h-64">
+                                <canvas id="study-time-chart"></canvas>
+                            </div>
+                        </div>
+                        
+                        <!-- 知识点掌握情况 -->
+                        <div class="glass-effect rounded-xl p-6 card-hover">
+                            <div class="flex items-center justify-between mb-6">
+                                <h3 class="text-xl font-semibold">知识点掌握情况</h3>
+                                <select class="bg-gray-800 text-white text-sm rounded-lg px-3 py-1 focus:outline-none focus:ring-2 focus:ring-primary">
+                                    <option value="all">所有分类</option>
+                                    <option value="javascript">JavaScript</option>
+                                    <option value="css">CSS</option>
+                                    <option value="html">HTML</option>
+                                </select>
+                            </div>
+                            <div class="h-64">
+                                <canvas id="knowledge-chart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- AI推荐 -->
+                    <div class="glass-effect rounded-xl p-6 card-hover mb-8">
+                        <div class="flex items-center justify-between mb-6">
+                            <div class="flex items-center gap-3">
+                                <div class="w-10 h-10 rounded-full bg-gradient-to-r from-blue-500 to-purple-500 flex items-center justify-center">
+                                    <i class="fa fa-lightbulb-o text-white"></i>
+                                </div>
+                                <div>
+                                    <h3 class="text-xl font-semibold">AI智能推荐</h3>
+                                    <p class="text-gray-400 text-sm">基于你的学习数据</p>
+                                </div>
+                            </div>
+                            <button class="text-primary hover:text-primary/80 transition-colors">
+                                <i class="fa fa-refresh"></i>
+                            </button>
+                        </div>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            <!-- 薄弱知识点 -->
+                            <div class="bg-gray-800/50 rounded-xl p-5 border border-gray-700 hover:border-primary/50 transition-colors">
+                                <div class="flex items-center gap-2 mb-4">
+                                    <span class="px-2 py-1 bg-red-500/20 text-red-400 text-xs rounded-full">薄弱知识点</span>
+                                    <span class="text-xs text-gray-400">优先级高</span>
+                                </div>
+                                <h4 class="text-lg font-medium mb-2">JavaScript闭包</h4>
+                                <p class="text-gray-400 text-sm mb-4">你在相关题目上的正确率仅为40%，建议重点复习。</p>
+                                <button class="w-full py-2 bg-primary/20 hover:bg-primary/30 text-primary rounded-lg transition-colors flex items-center justify-center gap-2">
+                                    <i class="fa fa-play-circle"></i>
+                                    <span>开始学习</span>
+                                </button>
+                            </div>
+                            
+                            <!-- 推荐题目 -->
+                            <div class="bg-gray-800/50 rounded-xl p-5 border border-gray-700 hover:border-primary/50 transition-colors">
+                                <div class="flex items-center gap-2 mb-4">
+                                    <span class="px-2 py-1 bg-blue-500/20 text-blue-400 text-xs rounded-full">推荐题目</span>
+                                    <span class="text-xs text-gray-400">新内容</span>
+                                </div>
+                                <h4 class="text-lg font-medium mb-2">数据结构 - 二叉树</h4>
+                                <p class="text-gray-400 text-sm mb-4">根据你的学习进度，推荐学习这些进阶题目。</p>
+                                <button class="w-full py-2 bg-primary/20 hover:bg-primary/30 text-primary rounded-lg transition-colors flex items-center justify-center gap-2">
+                                    <i class="fa fa-play-circle"></i>
+                                    <span>开始学习</span>
+                                </button>
+                            </div>
+                            
+                            <!-- 复习提醒 -->
+                            <div class="bg-gray-800/50 rounded-xl p-5 border border-gray-700 hover:border-primary/50 transition-colors">
+                                <div class="flex items-center gap-2 mb-4">
+                                    <span class="px-2 py-1 bg-yellow-500/20 text-yellow-400 text-xs rounded-full">复习提醒</span>
+                                    <span class="text-xs text-gray-400">已逾期</span>
+                                </div>
+                                <h4 class="text-lg font-medium mb-2">CSS布局技巧</h4>
+                                <p class="text-gray-400 text-sm mb-4">已超过3天未复习，根据记忆曲线，现在是最佳复习时间。</p>
+                                <button class="w-full py-2 bg-primary/20 hover:bg-primary/30 text-primary rounded-lg transition-colors flex items-center justify-center gap-2">
+                                    <i class="fa fa-play-circle"></i>
+                                    <span>开始复习</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 最近活动 -->
+                    <div class="glass-effect rounded-xl p-6 card-hover">
+                        <div class="flex items-center justify-between mb-6">
+                            <h3 class="text-xl font-semibold">最近活动</h3>
+                            <button class="text-gray-400 hover:text-white transition-colors">
+                                查看全部
+                            </button>
+                        </div>
+                        
+                        <div class="space-y-4">
+                            <!-- 活动项 -->
+                            <div class="flex items-start gap-4 pb-4 border-b border-gray-800">
+                                <div class="w-10 h-10 rounded-full bg-green-500/20 flex items-center justify-center flex-shrink-0">
+                                    <i class="fa fa-check text-green-500"></i>
+                                </div>
+                                <div class="flex-1">
+                                    <div class="flex items-center justify-between">
+                                        <h4 class="font-medium">完成了JavaScript基础测试</h4>
+                                        <span class="text-xs text-gray-400">今天 14:30</span>
+                                    </div>
+                                    <p class="text-gray-400 text-sm mt-1">正确率85%，超过了平均水平</p>
+                                </div>
+                            </div>
+                            
+                            <div class="flex items-start gap-4 pb-4 border-b border-gray-800">
+                                <div class="w-10 h-10 rounded-full bg-blue-500/20 flex items-center justify-center flex-shrink-0">
+                                    <i class="fa fa-plus text-blue-500"></i>
+                                </div>
+                                <div class="flex-1">
+                                    <div class="flex items-center justify-between">
+                                        <h4 class="font-medium">添加了15张新闪卡</h4>
+                                        <span class="text-xs text-gray-400">昨天 18:45</span>
+                                    </div>
+                                    <p class="text-gray-400 text-sm mt-1">分类：React框架</p>
+                                </div>
+                            </div>
+                            
+                            <div class="flex items-start gap-4 pb-4 border-b border-gray-800">
+                                <div class="w-10 h-10 rounded-full bg-purple-500/20 flex items-center justify-center flex-shrink-0">
+                                    <i class="fa fa-star text-purple-500"></i>
+                                </div>
+                                <div class="flex-1">
+                                    <div class="flex items-center justify-between">
+                                        <h4 class="font-medium">收藏了3道重点题目</h4>
+                                        <span class="text-xs text-gray-400">昨天 16:20</span>
+                                    </div>
+                                    <p class="text-gray-400 text-sm mt-1">分类：算法题</p>
+                                </div>
+                            </div>
+                            
+                            <div class="flex items-start gap-4">
+                                <div class="w-10 h-10 rounded-full bg-yellow-500/20 flex items-center justify-center flex-shrink-0">
+                                    <i class="fa fa-clock-o text-yellow-500"></i>
+                                </div>
+                                <div class="flex-1">
+                                    <div class="flex items-center justify-between">
+                                        <h4 class="font-medium">学习时长达到新记录</h4>
+                                        <span class="text-xs text-gray-400">2天前</span>
+                                    </div>
+                                    <p class="text-gray-400 text-sm mt-1">连续学习3小时，突破个人记录</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 题库管理 -->
+                <section id="questions" class="page-section hidden">
+                    <div class="glass-effect rounded-xl p-6 mb-6 card-hover">
+                        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+                            <h2 class="text-2xl font-bold">题库管理</h2>
+                            <div class="flex flex-wrap gap-3">
+                                <button id="add-question-btn" class="px-5 py-2.5 bg-primary hover:bg-primary/90 text-white rounded-lg transition-colors flex items-center gap-2">
+                                    <i class="fa fa-plus"></i>
+                                    <span>添加题目</span>
+                                </button>
+                                <div class="relative">
+                                    <button id="import-btn" class="px-5 py-2.5 bg-gray-800 hover:bg-gray-700 text-white rounded-lg transition-colors flex items-center gap-2">
+                                        <i class="fa fa-upload"></i>
+                                        <span>导入</span>
+                                    </button>
+                                    <input type="file" id="file-import" accept=".pdf,.txt,.json" class="absolute inset-0 opacity-0 cursor-pointer" />
+                                </div>
+                                <button class="px-5 py-2.5 bg-gray-800 hover:bg-gray-700 text-white rounded-lg transition-colors flex items-center gap-2">
+                                    <i class="fa fa-download"></i>
+                                    <span>导出</span>
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <!-- 筛选工具栏 -->
+                        <div class="flex flex-col md:flex-row gap-4 mb-6">
+                            <div class="flex-1 flex gap-3">
+                                <div class="relative flex-1">
+                                    <input type="text" placeholder="搜索题目..." class="w-full bg-gray-800 text-gray-300 rounded-lg pl-10 pr-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-primary">
+                                    <i class="fa fa-search absolute left-3 top-3.5 text-gray-500"></i>
+                                </div>
+                                <select class="bg-gray-800 text-gray-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-primary">
+                                    <option value="">所有分类</option>
+                                    <option value="javascript">JavaScript</option>
+                                    <option value="css">CSS</option>
+                                    <option value="html">HTML</option>
+                                    <option value="react">React</option>
+                                </select>
+                            </div>
+                            <div class="flex gap-3">
+                                <select class="bg-gray-800 text-gray-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-primary">
+                                    <option value="">所有难度</option>
+                                    <option value="1">简单</option>
+                                    <option value="2">中等</option>
+                                    <option value="3">困难</option>
+                                </select>
+                                <button class="px-4 py-2.5 bg-gray-800 hover:bg-gray-700 text-white rounded-lg transition-colors flex items-center gap-2">
+                                    <i class="fa fa-filter"></i>
+                                    <span>筛选</span>
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <!-- 题目表格 -->
+                        <div class="overflow-x-auto rounded-xl border border-gray-800">
+                            <table class="w-full">
+                                <thead>
+                                    <tr class="bg-gray-800/50">
+                                        <th class="px-6 py-4 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">题目</th>
+                                        <th class="px-6 py-4 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">分类</th>
+                                        <th class="px-6 py-4 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">难度</th>
+                                        <th class="px-6 py-4 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">正确率</th>
+                                        <th class="px-6 py-4 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">操作</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-gray-800">
+                                    <!-- 示例题目 -->
+                                    <tr class="hover:bg-gray-800/30 transition-colors">
+                                        <td class="px-6 py-4">
+                                            <div class="text-sm font-medium">JavaScript中关于闭包的描述，以下哪项是正确的？</div>
+                                        </td>
+                                        <td class="px-6 py-4">
+                                            <span class="px-2 py-1 bg-blue-500/20 text-blue-400 text-xs rounded-full">JavaScript</span>
+                                        </td>
+                                        <td class="px-6 py-4">
+                                            <div class="flex items-center">
+                                                <i class="fa fa-star text-yellow-500"></i>
+                                                <i class="fa fa-star text-yellow-500"></i>
+                                                <i class="fa fa-star text-gray-600"></i>
+                                            </div>
+                                        </td>
+                                        <td class="px-6 py-4">
+                                            <div class="flex items-center gap-2">
+                                                <span class="text-sm font-medium">65%</span>
+                                                <div class="w-16 bg-gray-700 rounded-full h-1.5">
+                                                    <div class="bg-green-500 h-1.5 rounded-full" style="width: 65%"></div>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td class="px-6 py-4">
+                                            <div class="flex items-center gap-3">
+                                                <button class="text-yellow-500 hover:text-yellow-400 transition-colors">
+                                                    <i class="fa fa-star"></i>
+                                                </button>
+                                                <button class="text-blue-500 hover:text-blue-400 transition-colors">
+                                                    <i class="fa fa-pencil"></i>
+                                                </button>
+                                                <button class="text-red-500 hover:text-red-400 transition-colors">
+                                                    <i class="fa fa-trash"></i>
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    
+                                    <tr class="hover:bg-gray-800/30 transition-colors">
+                                        <td class="px-6 py-4">
+                                            <div class="text-sm font-medium">CSS中flex布局的主要特性是什么？</div>
+                                        </td>
+                                        <td class="px-6 py-4">
+                                            <span class="px-2 py-1 bg-purple-500/20 text-purple-400 text-xs rounded-full">CSS</span>
+                                        </td>
+                                        <td class="px-6 py-4">
+                                            <div class="flex items-center">
+                                                <i class="fa fa-star text-yellow-500"></i>
+                                                <i class="fa fa-star text-gray-600"></i>
+                                                <i class="fa fa-star text-gray-600"></i>
+                                            </div>
+                                        </td>
+                                        <td class="px-6 py-4">
+                                            <div class="flex items-center gap-2">
+                                                <span class="text-sm font-medium">82%</span>
+                                                <div class="w-16 bg-gray-700 rounded-full h-1.5">
+                                                    <div class="bg-green-500 h-1.5 rounded-full" style="width: 82%"></div>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td class="px-6 py-4">
+                                            <div class="flex items-center gap-3">
+                                                <button class="text-gray-500 hover:text-yellow-400 transition-colors">
+                                                    <i class="fa fa-star-o"></i>
+                                                </button>
+                                                <button class="text-blue-500 hover:text-blue-400 transition-colors">
+                                                    <i class="fa fa-pencil"></i>
+                                                </button>
+                                                <button class="text-red-500 hover:text-red-400 transition-colors">
+                                                    <i class="fa fa-trash"></i>
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    
+                                    <tr class="hover:bg-gray-800/30 transition-colors">
+                                        <td class="px-6 py-4">
+                                            <div class="text-sm font-medium">React中useState钩子的作用是什么？</div>
+                                        </td>
+                                        <td class="px-6 py-4">
+                                            <span class="px-2 py-1 bg-cyan-500/20 text-cyan-400 text-xs rounded-full">React</span>
+                                        </td>
+                                        <td class="px-6 py-4">
+                                            <div class="flex items-center">
+                                                <i class="fa fa-star text-yellow-500"></i>
+                                                <i class="fa fa-star text-yellow-500"></i>
+                                                <i class="fa fa-star text-yellow-500"></i>
+                                            </div>
+                                        </td>
+                                        <td class="px-6 py-4">
+                                            <div class="flex items-center gap-2">
+                                                <span class="text-sm font-medium">45%</span>
+                                                <div class="w-16 bg-gray-700 rounded-full h-1.5">
+                                                    <div class="bg-red-500 h-1.5 rounded-full" style="width: 45%"></div>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td class="px-6 py-4">
+                                            <div class="flex items-center gap-3">
+                                                <button class="text-yellow-500 hover:text-yellow-400 transition-colors">
+                                                    <i class="fa fa-star"></i>
+                                                </button>
+                                                <button class="text-blue-500 hover:text-blue-400 transition-colors">
+                                                    <i class="fa fa-pencil"></i>
+                                                </button>
+                                                <button class="text-red-500 hover:text-red-400 transition-colors">
+                                                    <i class="fa fa-trash"></i>
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        <!-- 分页 -->
+                        <div class="flex items-center justify-between mt-6">
+                            <div class="text-sm text-gray-400">
+                                显示 <span class="text-white">1</span> 到 <span class="text-white">3</span> 共 <span class="text-white">12</span> 条
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <button class="w-10 h-10 flex items-center justify-center rounded-lg bg-gray-800 hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                                    <i class="fa fa-chevron-left"></i>
+                                </button>
+                                <button class="w-10 h-10 flex items-center justify-center rounded-lg bg-primary text-white">1</button>
+                                <button class="w-10 h-10 flex items-center justify-center rounded-lg bg-gray-800 hover:bg-gray-700 transition-colors">2</button>
+                                <button class="w-10 h-10 flex items-center justify-center rounded-lg bg-gray-800 hover:bg-gray-700 transition-colors">3</button>
+                                <button class="w-10 h-10 flex items-center justify-center rounded-lg bg-gray-800 hover:bg-gray-700 transition-colors">4</button>
+                                <button class="w-10 h-10 flex items-center justify-center rounded-lg bg-gray-800 hover:bg-gray-700 transition-colors">
+                                    <i class="fa fa-chevron-right"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 刷题中心 -->
+                <section id="quiz" class="page-section hidden">
+                    <div class="glass-effect rounded-xl p-6 mb-6 card-hover">
+                        <h2 class="text-2xl font-bold mb-6">刷题中心</h2>
+                        
+                        <!-- 刷题设置 -->
+                        <div class="bg-gray-800/50 rounded-xl p-6 border border-gray-700 mb-6">
+                            <h3 class="text-xl font-semibold mb-6">刷题设置</h3>
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-400 mb-2">选择分类</label>
+                                    <select class="w-full bg-gray-900 border border-gray-700 text-white rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary">
+                                        <option value="all">所有分类</option>
+                                        <option value="javascript">JavaScript</option>
+                                        <option value="css">CSS</option>
+                                        <option value="html">HTML</option>
+                                        <option value="react">React</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-400 mb-2">题目数量</label>
+                                    <input type="number" class="w-full bg-gray-900 border border-gray-700 text-white rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary" value="10" min="1" max="50">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-400 mb-2">难度选择</label>
+                                    <select class="w-full bg-gray-900 border border-gray-700 text-white rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary">
+                                        <option value="all">所有难度</option>
+                                        <option value="1">简单</option>
+                                        <option value="2">中等</option>
+                                        <option value="3">困难</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="mt-8 flex justify-center">
+                                <button class="px-8 py-3 bg-primary hover:bg-primary/90 text-white rounded-lg transition-colors flex items-center gap-2 text-lg">
+                                    <i class="fa fa-play-circle"></i>
+                                    <span>开始刷题</span>
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <!-- 推荐练习 -->
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            <!-- 推荐练习卡片 -->
+                            <div class="bg-gray-800/50 rounded-xl overflow-hidden border border-gray-700 hover:border-primary/50 transition-colors card-hover">
+                                <div class="h-32 bg-gradient-to-r from-blue-600 to-purple-600 relative">
+                                    <div class="absolute inset-0 flex items-center justify-center">
+                                        <i class="fa fa-code text-white text-5xl opacity-20"></i>
+                                    </div>
+                                    <div class="absolute bottom-4 left-4">
+                                        <span class="px-2 py-1 bg-white/20 backdrop-blur-sm text-white text-xs rounded-full">JavaScript</span>
+                                    </div>
+                                </div>
+                                <div class="p-5">
+                                    <h3 class="text-lg font-semibold mb-2">JavaScript基础巩固</h3>
+                                    <p class="text-gray-400 text-sm mb-4">包含20道JavaScript基础题目，帮助你巩固核心概念。</p>
+                                    <div class="flex items-center justify-between">
+                                        <div class="flex items-center gap-1">
+                                            <i class="fa fa-star text-yellow-500"></i>
+                                            <i class="fa fa-star text-yellow-500"></i>
+                                            <i class="fa fa-star-o text-gray-500"></i>
+                                            <span class="text-xs text-gray-400 ml-1">中等难度</span>
+                                        </div>
+                                        <button class="px-4 py-2 bg-primary/20 hover:bg-primary/30 text-primary rounded-lg transition-colors text-sm">
+                                            开始练习
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="bg-gray-800/50 rounded-xl overflow-hidden border border-gray-700 hover:border-primary/50 transition-colors card-hover">
+                                <div class="h-32 bg-gradient-to-r from-green-600 to-teal-600 relative">
+                                    <div class="absolute inset-0 flex items-center justify-center">
+                                        <i class="fa fa-css3 text-white text-5xl opacity-20"></i>
+                                    </div>
+                                    <div class="absolute bottom-4 left-4">
+                                        <span class="px-2 py-1 bg-white/20 backdrop-blur-sm text-white text-xs rounded-full">CSS</span>
+                                    </div>
+                                </div>
+                                <div class="p-5">
+                                    <h3 class="text-lg font-semibold mb-2">CSS布局大师</h3>
+                                    <p class="text-gray-400 text-sm mb-4">15道关于Flexbox和Grid布局的题目，提升你的布局能力。</p>
+                                    <div class="flex items-center justify-between">
+                                        <div class="flex items-center gap-1">
+                                            <i class="fa fa-star text-yellow-500"></i>
+                                            <i class="fa fa-star text-yellow-500"></i>
+                                            <i class="fa fa-star text-yellow-500"></i>
+                                            <span class="text-xs text-gray-400 ml-1">高难度</span>
+                                        </div>
+                                        <button class="px-4 py-2 bg-primary/20 hover:bg-primary/30 text-primary rounded-lg transition-colors text-sm">
+                                            开始练习
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="bg-gray-800/50 rounded-xl overflow-hidden border border-gray-700 hover:border-primary/50 transition-colors card-hover">
+                                <div class="h-32 bg-gradient-to-r from-pink-600 to-red-600 relative">
+                                    <div class="absolute inset-0 flex items-center justify-center">
+                                        <i class="fa fa-react text-white text-5xl opacity-20"></i>
+                                    </div>
+                                    <div class="absolute bottom-4 left-4">
+                                        <span class="px-2 py-1 bg-white/20 backdrop-blur-sm text-white text-xs rounded-full">React</span>
+                                    </div>
+                                </div>
+                                <div class="p-5">
+                                    <h3 class="text-lg font-semibold mb-2">React Hooks实战</h3>
+                                    <p class="text-gray-400 text-sm mb-4">25道关于React Hooks的题目，掌握现代React开发。</p>
+                                    <div class="flex items-center justify-between">
+                                        <div class="flex items-center gap-1">
+                                            <i class="fa fa-star text-yellow-500"></i>
+                                            <i class="fa fa-star text-yellow-500"></i>
+                                            <i class="fa fa-star text-yellow-500"></i>
+                                            <span class="text-xs text-gray-400 ml-1">高难度</span>
+                                        </div>
+                                        <button class="px-4 py-2 bg-primary/20 hover:bg-primary/30 text-primary rounded-lg transition-colors text-sm">
+                                            开始练习
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 闪卡学习 -->
+                <section id="flashcards" class="page-section hidden">
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        <!-- 左侧闪卡学习区 -->
+                        <div class="lg:col-span-2 space-y-6">
+                            <!-- 闪卡学习 -->
+                            <div class="glass-effect rounded-xl p-6 card-hover">
+                                <div class="flex items-center justify-between mb-6">
+                                    <h2 class="text-2xl font-bold">闪卡学习</h2>
+                                    <div class="flex items-center gap-3">
+                                        <select class="bg-gray-800 text-white rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary">
+                                            <option value="all">所有分类</option>
+                                            <option value="javascript">JavaScript</option>
+                                            <option value="css">CSS</option>
+                                            <option value="html">HTML</option>
+                                            <option value="react">React</option>
+                                        </select>
+                                        <button class="px-4 py-2 bg-primary hover:bg-primary/90 text-white rounded-lg transition-colors flex items-center gap-2">
+                                            <i class="fa fa-plus"></i>
+                                            <span>添加闪卡</span>
+                                        </button>
+                                    </div>
+                                </div>
+                                
+                                <!-- 闪卡展示区 -->
+                                <div class="flex justify-center mb-8">
+                                    <div class="w-full max-w-lg h-80 perspective-1000">
+                                        <div class="relative w-full h-full transition-transform duration-700 transform-style-preserve-3d" id="flashcard">
+                                            <!-- 闪卡正面 -->
+                                            <div class="absolute inset-0 bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl shadow-xl p-8 flex flex-col items-center justify-center backface-hidden">
+                                                <div class="absolute top-4 right-4 text-gray-500">
+                                                    <i class="fa fa-info-circle"></i>
+                                                </div>
+                                                <h3 class="text-2xl font-bold text-center mb-4">什么是JavaScript闭包？</h3>
+                                                <p class="text-gray-400 text-center">点击卡片翻转查看答案</p>
+                                                <div class="absolute bottom-4 left-4 text-xs text-gray-500">
+                                                    JavaScript · 中等难度
+                                                </div>
+                                            </div>
+                                            
+                                            <!-- 闪卡背面 -->
+                                            <div class="absolute inset-0 bg-gradient-to-br from-primary/20 to-secondary/20 rounded-xl shadow-xl p-8 flex flex-col items-center justify-center backface-hidden transform rotate-y-180">
+                                                <div class="absolute top-4 right-4 text-gray-500">
+                                                    <i class="fa fa-check-circle text-green-500"></i>
+                                                </div>
+                                                <p class="text-lg text-center mb-6">闭包是指有权访问另一个函数作用域中变量的函数，通常是在一个函数内部创建另一个函数。</p>
+                                                <div class="w-full bg-gray-800/50 rounded-lg p-4 text-sm">
+                                                    <pre class="text-gray-300"><code>function outer() {
+  const x = 10;
+  function inner() {
+    console.log(x); // 可以访问x
+  }
+  return inner;
+}</code></pre>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- 闪卡操作区 -->
+                                <div class="flex justify-center gap-4">
+                                    <button class="px-6 py-3 bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded-lg transition-colors flex items-center gap-2">
+                                        <i class="fa fa-times-circle"></i>
+                                        <span>困难</span>
+                                    </button>
+                                    <button class="px-6 py-3 bg-yellow-500/20 hover:bg-yellow-500/30 text-yellow-400 rounded-lg transition-colors flex items-center gap-2">
+                                        <i class="fa fa-clock-o"></i>
+                                        <span>一般</span>
+                                    </button>
+                                    <button class="px-6 py-3 bg-green-500/20 hover:bg-green-500/30 text-green-400 rounded-lg transition-colors flex items-center gap-2">
+                                        <i class="fa fa-check-circle"></i>
+                                        <span>简单</span>
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <!-- 闪卡列表 -->
+                            <div class="glass-effect rounded-xl p-6 card-hover">
+                                <div class="flex items-center justify-between mb-6">
+                                    <h3 class="text-xl font-semibold">我的闪卡</h3>
+                                    <button class="text-gray-400 hover:text-white transition-colors">
+                                        查看全部
+                                    </button>
+                                </div>
+                                
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <!-- 闪卡项 -->
+                                    <div class="bg-gray-800/50 rounded-xl p-4 border border-gray-700 hover:border-primary/50 transition-colors">
+                                        <div class="flex items-center justify-between mb-2">
+                                            <span class="px-2 py-1 bg-blue-500/20 text-blue-400 text-xs rounded-full">JavaScript</span>
+                                            <button class="text-yellow-500 hover:text-yellow-400 transition-colors">
+                                                <i class="fa fa-star"></i>
+                                            </button>
+                                        </div>
+                                        <h4 class="font-medium mb-1">什么是原型链？</h4>
+                                        <p class="text-gray-400 text-sm truncate">原型链是JavaScript中实现对象继承的机制...</p>
+                                        <div class="flex items-center justify-between mt-3">
+                                            <span class="text-xs text-gray-500">上次复习: 昨天</span>
+                                            <span class="text-xs text-green-500">掌握度: 80%</span>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="bg-gray-800/50 rounded-xl p-4 border border-gray-700 hover:border-primary/50 transition-colors">
+                                        <div class="flex items-center justify-between mb-2">
+                                            <span class="px-2 py-1 bg-purple-500/20 text-purple-400 text-xs rounded-full">CSS</span>
+                                            <button class="text-gray-500 hover:text-yellow-400 transition-colors">
+                                                <i class="fa fa-star-o"></i>
+                                            </button>
+                                        </div>
+                                        <h4 class="font-medium mb-1">Flexbox的主要属性有哪些？</h4>
+                                        <p class="text-gray-400 text-sm truncate">Flexbox布局模型的主要属性包括容器属性和项目属性...</p>
+                                        <div class="flex items-center justify-between mt-3">
+                                            <span class="text-xs text-gray-500">上次复习: 3天前</span>
+                                            <span class="text-xs text-yellow-500">掌握度: 60%</span>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="bg-gray-800/50 rounded-xl p-4 border border-gray-700 hover:border-primary/50 transition-colors">
+                                        <div class="flex items-center justify-between mb-2">
+                                            <span class="px-2 py-1 bg-cyan-500/20 text-cyan-400 text-xs rounded-full">React</span>
+                                            <button class="text-yellow-500 hover:text-yellow-400 transition-colors">
+                                                <i class="fa fa-star"></i>
+                                            </button>
+                                        </div>
+                                        <h4 class="font-medium mb-1">useEffect的依赖数组作用是什么？</h4>
+                                        <p class="text-gray-400 text-sm truncate">依赖数组用于控制useEffect何时重新执行...</p>
+                                        <div class="flex items-center justify-between mt-3">
+                                            <span class="text-xs text-gray-500">上次复习: 今天</span>
+                                            <span class="text-xs text-red-500">掌握度: 40%</span>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="bg-gray-800/50 rounded-xl p-4 border border-gray-700 hover:border-primary/50 transition-colors">
+                                        <div class="flex items-center justify-between mb-2">
+                                            <span class="px-2 py-1 bg-blue-500/20 text-blue-400 text-xs rounded-full">JavaScript</span>
+                                            <button class="text-gray-500 hover:text-yellow-400 transition-colors">
+                                                <i class="fa fa-star-o"></i>
+                                            </button>
+                                        </div>
+                                        <h4 class="font-medium mb-1">Promise的三种状态是什么？</h4>
+                                        <p class="text-gray-400 text-sm truncate">Promise有三种状态：pending（进行中）、fulfilled（已成功）和rejected（已失败）...</p>
+                                        <div class="flex items-center justify-between mt-3">
+                                            <span class="text-xs text-gray-500">上次复习: 5天前</span>
+                                            <span class="text-xs text-green-500">掌握度: 85%</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- 右侧统计区 -->
+                        <div class="space-y-6">
+                            <!-- 学习统计 -->
+                            <div class="glass-effect rounded-xl p-6 card-hover">
+                                <h3 class="text-xl font-semibold mb-6">学习统计</h3>
+                                
+                                <div class="space-y-6">
+                                    <!-- 今日复习 -->
+                                    <div>
+                                        <div class="flex items-center justify-between mb-2">
+                                            <h4 class="text-sm font-medium text-gray-400">今日复习</h4>
+                                            <span class="text-sm font-medium text-primary">8/12</span>
+                                        </div>
+                                        <div class="w-full bg-gray-800 rounded-full h-2">
+                                            <div class="bg-primary h-2 rounded-full" style="width: 66%"></div>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- 记忆进度 -->
+                                    <div>
+                                        <div class="flex items-center justify-between mb-2">
+                                            <h4 class="text-sm font-medium text-gray-400">记忆进度</h4>
+                                            <span class="text-sm font-medium text-green-500">68%</span>
+                                        </div>
+                                        <div class="w-full bg-gray-800 rounded-full h-2">
+                                            <div class="bg-green-500 h-2 rounded-full" style="width: 68%"></div>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- 薄弱区域 -->
+                                    <div>
+                                        <div class="flex items-center justify-between mb-2">
+                                            <h4 class="text-sm font-medium text-gray-400">薄弱区域</h4>
+                                            <span class="text-sm font-medium text-red-500">React Hooks</span>
+                                        </div>
+                                        <div class="w-full bg-gray-800 rounded-full h-2">
+                                            <div class="bg-red-500 h-2 rounded-full" style="width: 40%"></div>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- 学习连续天数 -->
+                                    <div class="pt-4 border-t border-gray-800">
+                                        <div class="flex items-center justify-between mb-3">
+                                            <h4 class="text-sm font-medium text-gray-400">学习连续天数</h4>
+                                            <span class="text-sm font-medium text-primary">7天</span>
+                                        </div>
+                                        <div class="flex items-center gap-1">
+                                            <div class="w-8 h-8 rounded bg-primary flex items-center justify-center text-xs">一</div>
+                                            <div class="w-8 h-8 rounded bg-primary flex items-center justify-center text-xs">二</div>
+                                            <div class="w-8 h-8 rounded bg-primary flex items-center justify-center text-xs">三</div>
+                                            <div class="w-8 h-8 rounded bg-primary flex items-center justify-center text-xs">四</div>
+                                            <div class="w-8 h-8 rounded bg-primary flex items-center justify-center text-xs">五</div>
+                                            <div class="w-8 h-8 rounded bg-primary flex items-center justify-center text-xs">六</div>
+                                            <div class="w-8 h-8 rounded bg-primary flex items-center justify-center text-xs">日</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- 学习建议 -->
+                            <div class="glass-effect rounded-xl p-6 card-hover">
+                                <div class="flex items-center gap-3 mb-6">
+                                    <div class="w-10 h-10 rounded-full bg-blue-500/20 flex items-center justify-center">
+                                        <i class="fa fa-lightbulb-o text-blue-500"></i>
+                                    </div>
+                                    <h3 class="text-xl font-semibold">学习建议</h3>
+                                </div>
+                                
+                                <div class="space-y-4">
+                                    <div class="bg-gray-800/50 rounded-lg p-4 border-l-4 border-blue-500">
+                                        <h4 class="font-medium mb-1">重点复习React Hooks</h4>
+                                        <p class="text-sm text-gray-400">你的React Hooks掌握度较低，建议重点复习useEffect和useState的使用方法。</p>
+                                    </div>
+                                    
+                                    <div class="bg-gray-800/50 rounded-lg p-4 border-l-4 border-green-500">
+                                        <h4 class="font-medium mb-1">继续保持学习节奏</h4>
+                                        <p class="text-sm text-gray-400">你已经连续学习7天，继续保持这个节奏可以获得更好的学习效果。</p>
+                                    </div>
+                                    
+                                    <div class="bg-gray-800/50 rounded-lg p-4 border-l-4 border-yellow-500">
+                                        <h4 class="font-medium mb-1">尝试新的学习方法</h4>
+                                        <p class="text-sm text-gray-400">建议尝试将闪卡与实际编码练习结合，加深对知识点的理解。</p>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- 学习计划 -->
+                            <div class="glass-effect rounded-xl p-6 card-hover">
+                                <div class="flex items-center justify-between mb-6">
+                                    <h3 class="text-xl font-semibold">今日计划</h3>
+                                    <span class="text-xs text-gray-400">剩余3项</span>
+                                </div>
+                                
+                                <div class="space-y-3">
+                                    <div class="flex items-center gap-3">
+                                        <input type="checkbox" class="w-5 h-5 rounded bg-gray-800 border-gray-700 text-primary focus:ring-primary" checked>
+                                        <span class="text-sm">复习JavaScript闭包概念</span>
+                                    </div>
+                                    <div class="flex items-center gap-3">
+                                        <input type="checkbox" class="w-5 h-5 rounded bg-gray-800 border-gray-700 text-primary focus:ring-primary" checked>
+                                        <span class="text-sm">完成5道CSS布局题目</span>
+                                    </div>
+                                    <div class="flex items-center gap-3">
+                                        <input type="checkbox" class="w-5 h-5 rounded bg-gray-800 border-gray-700 text-primary focus:ring-primary">
+                                        <span class="text-sm">学习React useEffect</span>
+                                    </div>
+                                    <div class="flex items-center gap-3">
+                                        <input type="checkbox" class="w-5 h-5 rounded bg-gray-800 border-gray-700 text-primary focus:ring-primary">
+                                        <span class="text-sm">创建10张新闪卡</span>
+                                    </div>
+                                    <div class="flex items-center gap-3">
+                                        <input type="checkbox" class="w-5 h-5 rounded bg-gray-800 border-gray-700 text-primary focus:ring-primary">
+                                        <span class="text-sm">回顾错题集</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 收藏题目 -->
+                <section id="favorites" class="page-section hidden">
+                    <div class="glass-effect rounded-xl p-6 card-hover">
+                        <h2 class="text-2xl font-bold mb-6">收藏题目</h2>
+                        
+                        <!-- 收藏题目列表 -->
+                        <div class="space-y-4">
+                            <!-- 收藏题目项 -->
+                            <div class="bg-gray-800/50 rounded-xl p-5 border border-gray-700 hover:border-primary/50 transition-colors">
+                                <div class="flex items-start gap-4">
+                                    <div class="w-10 h-10 rounded-full bg-yellow-500/20 flex items-center justify-center flex-shrink-0">
+                                        <i class="fa fa-star text-yellow-500"></i>
+                                    </div>
+                                    <div class="flex-1">
+                                        <div class="flex items-center gap-2 mb-2">
+                                            <span class="px-2 py-1 bg-blue-500/20 text-blue-400 text-xs rounded-full">JavaScript</span>
+                                            <span class="px-2 py-1 bg-yellow-500/20 text-yellow-400 text-xs rounded-full">中等难度</span>
+                                        </div>
+                                        <h3 class="text-lg font-medium mb-3">关于JavaScript事件循环(Event Loop)，以下说法正确的是：</h3>
+                                        <div class="space-y-2 mb-4">
+                                            <div class="flex items-center gap-2">
+                                                <input type="radio" name="q1" class="w-4 h-4 text-primary focus:ring-primary">
+                                                <label class="text-gray-300">宏任务(MacroTask)优先于微任务(MicroTask)执行</label>
+                                            </div>
+                                            <div class="flex items-center gap-2">
+                                                <input type="radio" name="q1" class="w-4 h-4 text-primary focus:ring-primary">
+                                                <label class="text-gray-300">微任务(MicroTask)优先于宏任务(MacroTask)执行</label>
+                                            </div>
+                                            <div class="flex items-center gap-2">
+                                                <input type="radio" name="q1" class="w-4 h-4 text-primary focus:ring-primary">
+                                                <label class="text-gray-300">宏任务和微任务没有执行顺序之分</label>
+                                            </div>
+                                            <div class="flex items-center gap-2">
+                                                <input type="radio" name="q1" class="w-4 h-4 text-primary focus:ring-primary">
+                                                <label class="text-gray-300">以上说法都不正确</label>
+                                            </div>
+                                        </div>
+                                        <div class="flex items-center justify-between">
+                                            <span class="text-xs text-gray-400">收藏于: 2023-06-15</span>
+                                            <div class="flex items-center gap-3">
+                                                <button class="text-blue-500 hover:text-blue-400 transition-colors">
+                                                    <i class="fa fa-eye"></i>
+                                                </button>
+                                                <button class="text-yellow-500 hover:text-yellow-400 transition-colors">
+                                                    <i class="fa fa-star"></i>
+                                                </button>
+                                                <button class="text-red-500 hover:text-red-400 transition-colors">
+                                                    <i class="fa fa-trash"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="bg-gray-800/50 rounded-xl p-5 border border-gray-700 hover:border-primary/50 transition-colors">
+                                <div class="flex items-start gap-4">
+                                    <div class="w-10 h-10 rounded-full bg-yellow-500/20 flex items-center justify-center flex-shrink-0">
+                                        <i class="fa fa-star text-yellow-500"></i>
+                                    </div>
+                                    <div class="flex-1">
+                                        <div class="flex items-center gap-2 mb-2">
+                                            <span class="px-2 py-1 bg-purple-500/20 text-purple-400 text-xs rounded-full">CSS</span>
+                                            <span class="px-2 py-1 bg-red-500/20 text-red-400 text-xs rounded-full">高难度</span>
+                                        </div>
+                                        <h3 class="text-lg font-medium mb-3">CSS中，以下哪种方式可以实现元素的垂直居中？</h3>
+                                        <div class="space-y-2 mb-4">
+                                            <div class="flex items-center gap-2">
+                                                <input type="checkbox" name="q2" class="w-4 h-4 text-primary focus:ring-primary">
+                                                <label class="text-gray-300">使用flex布局: align-items: center</label>
+                                            </div>
+                                            <div class="flex items-center gap-2">
+                                                <input type="checkbox" name="q2" class="w-4 h-4 text-primary focus:ring-primary">
+                                                <label class="text-gray-300">使用grid布局: place-items: center</label>
+                                            </div>
+                                            <div class="flex items-center gap-2">
+                                                <input type="checkbox" name="q2" class="w-4 h-4 text-primary focus:ring-primary">
+                                                <label class="text-gray-300">使用绝对定位和transform: translate(-50%, -50%)</label>
+                                            </div>
+                                            <div class="flex items-center gap-2">
+                                                <input type="checkbox" name="q2" class="w-4 h-4 text-primary focus:ring-primary">
+                                                <label class="text-gray-300">设置line-height等于height</label>
+                                            </div>
+                                        </div>
+                                        <div class="flex items-center justify-between">
+                                            <span class="text-xs text-gray-400">收藏于: 2023-06-10</span>
+                                            <div class="flex items-center gap-3">
+                                                <button class="text-blue-500 hover:text-blue-400 transition-colors">
+                                                    <i class="fa fa-eye"></i>
+                                                </button>
+                                                <button class="text-yellow-500 hover:text-yellow-400 transition-colors">
+                                                    <i class="fa fa-star"></i>
+                                                </button>
+                                                <button class="text-red-500 hover:text-red-400 transition-colors">
+                                                    <i class="fa fa-trash"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="bg-gray-800/50 rounded-xl p-5 border border-gray-700 hover:border-primary/50 transition-colors">
+                                <div class="flex items-start gap-4">
+                                    <div class="w-10 h-10 rounded-full bg-yellow-500/20 flex items-center justify-center flex-shrink-0">
+                                        <i class="fa fa-star text-yellow-500"></i>
+                                    </div>
+                                    <div class="flex-1">
+                                        <div class="flex items-center gap-2 mb-2">
+                                            <span class="px-2 py-1 bg-cyan-500/20 text-cyan-400 text-xs rounded-full">React</span>
+                                            <span class="px-2 py-1 bg-red-500/20 text-red-400 text-xs rounded-full">高难度</span>
+                                        </div>
+                                        <h3 class="text-lg font-medium mb-3">React中，如何优化组件的性能？</h3>
+                                        <div class="space-y-2 mb-4">
+                                            <div class="flex items-center gap-2">
+                                                <input type="checkbox" name="q3" class="w-4 h-4 text-primary focus:ring-primary">
+                                                <label class="text-gray-300">使用React.memo进行组件记忆化</label>
+                                            </div>
+                                            <div class="flex items-center gap-2">
+                                                <input type="checkbox" name="q3" class="w-4 h-4 text-primary focus:ring-primary">
+                                                <label class="text-gray-300">使用useMemo和useCallback缓存计算结果和函数</label>
+                                            </div>
+                                            <div class="flex items-center gap-2">
+                                                <input type="checkbox" name="q3" class="w-4 h-4 text-primary focus:ring-primary">
+                                                <label class="text-gray-300">避免在渲染期间创建新函数和对象</label>
+                                            </div>
+                                            <div class="flex items-center gap-2">
+                                                <input type="checkbox" name="q3" class="w-4 h-4 text-primary focus:ring-primary">
+                                                <label class="text-gray-300">使用虚拟列表处理长列表</label>
+                                            </div>
+                                        </div>
+                                        <div class="flex items-center justify-between">
+                                            <span class="text-xs text-gray-400">收藏于: 2023-06-05</span>
+                                            <div class="flex items-center gap-3">
+                                                <button class="text-blue-500 hover:text-blue-400 transition-colors">
+                                                    <i class="fa fa-eye"></i>
+                                                </button>
+                                                <button class="text-yellow-500 hover:text-yellow-400 transition-colors">
+                                                    <i class="fa fa-star"></i>
+                                                </button>
+                                                <button class="text-red-500 hover:text-red-400 transition-colors">
+                                                    <i class="fa fa-trash"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 错题集 -->
+                <section id="wrong-questions" class="page-section hidden">
+                    <div class="glass-effect rounded-xl p-6 card-hover">
+                        <h2 class="text-2xl font-bold mb-6">错题集</h2>
+                        
+                        <!-- 错题统计 -->
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                            <div class="bg-gray-800/50 rounded-xl p-5 border border-gray-700">
+                                <div class="flex items-center justify-between mb-2">
+                                    <h3 class="text-gray-400 font-medium">总错题数</h3>
+                                    <div class="w-10 h-10 rounded-full bg-red-500/20 flex items-center justify-center">
+                                        <i class="fa fa-times-circle text-red-500"></i>
+                                    </div>
+                                </div>
+                                <p class="text-3xl font-bold">24题</p>
+                                <p class="text-green-500 text-sm mt-1 flex items-center">
+                                    <i class="fa fa-arrow-down mr-1"></i>
+                                    <span>较上周减少8题</span>
+                                </p>
+                            </div>
+                            
+                            <div class="bg-gray-800/50 rounded-xl p-5 border border-gray-700">
+                                <div class="flex items-center justify-between mb-2">
+                                    <h3 class="text-gray-400 font-medium">待复习</h3>
+                                    <div class="w-10 h-10 rounded-full bg-yellow-500/20 flex items-center justify-center">
+                                        <i class="fa fa-clock-o text-yellow-500"></i>
+                                    </div>
+                                </div>
+                                <p class="text-3xl font-bold">12题</p>
+                                <p class="text-gray-400 text-sm mt-1">
+                                    <span>本周需复习</span>
+                                </p>
+                            </div>
+                            
+                            <div class="bg-gray-800/50 rounded-xl p-5 border border-gray-700">
+                                <div class="flex items-center justify-between mb-2">
+                                    <h3 class="text-gray-400 font-medium">已掌握</h3>
+                                    <div class="w-10 h-10 rounded-full bg-green-500/20 flex items-center justify-center">
+                                        <i class="fa fa-check-circle text-green-500"></i>
+                                    </div>
+                                </div>
+                                <p class="text-3xl font-bold">12题</p>
+                                <p class="text-green-500 text-sm mt-1 flex items-center">
+                                    <i class="fa fa-arrow-up mr-1"></i>
+                                    <span>本周新增3题</span>
+                                </p>
+                            </div>
+                        </div>
+                        
+                        <!-- 错题分类 -->
+                        <div class="bg-gray-800/50 rounded-xl p-5 border border-gray-700 mb-6">
+                            <h3 class="text-lg font-semibold mb-4">错题分类</h3>
+                            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                <div class="flex items-center gap-2">
+                                    <div class="w-3 h-3 rounded-full bg-blue-500"></div>
+                                    <span class="text-sm">JavaScript (8题)</span>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <div class="w-3 h-3 rounded-full bg-purple-500"></div>
+                                    <span class="text-sm">CSS (6题)</span>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <div class="w-3 h-3 rounded-full bg-cyan-500"></div>
+                                    <span class="text-sm">React (7题)</span>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <div class="w-3 h-3 rounded-full bg-green-500"></div>
+                                    <span class="text-sm">HTML (3题)</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- 错题列表 -->
+                        <div class="space-y-4">
+                            <!-- 错题项 -->
+                            <div class="bg-gray-800/50 rounded-xl p-5 border border-gray-700 hover:border-primary/50 transition-colors">
+                                <div class="flex items-start gap-4">
+                                    <div class="w-10 h-10 rounded-full bg-red-500/20 flex items-center justify-center flex-shrink-0">
+                                        <i class="fa fa-times-circle text-red-500"></i>
+                                    </div>
+                                    <div class="flex-1">
+                                        <div class="flex items-center gap-2 mb-2">
+                                            <span class="px-2 py-1 bg-blue-500/20 text-blue-400 text-xs rounded-full">JavaScript</span>
+                                            <span class="px-2 py-1 bg-yellow-500/20 text-yellow-400 text-xs rounded-full">错误2次</span>
+                                        </div>
+                                        <h3 class="text-lg font-medium mb-3">关于JavaScript的this指向，以下说法错误的是：</h3>
+                                        <div class="space-y-2 mb-4">
+                                            <div class="flex items-center gap-2">
+                                                <input type="radio" name="wrong1" class="w-4 h-4 text-primary focus:ring-primary">
+                                                <label class="text-gray-300">在全局作用域中，this指向全局对象</label>
+                                            </div>
+                                            <div class="flex items-center gap-2">
+                                                <input type="radio" name="wrong1" class="w-4 h-4 text-primary focus:ring-primary" checked>
+                                                <label class="text-gray-300">在箭头函数中，this指向定义时的上下文</label>
+                                            </div>
+                                            <div class="flex items-center gap-2">
+                                                <input type="radio" name="wrong1" class="w-4 h-4 text-primary focus:ring-primary">
+                                                <label class="text-gray-300">在对象方法中，this指向调用该方法的对象</label>
+                                            </div>
+                                            <div class="flex items-center gap-2">
+                                                <input type="radio" name="wrong1" class="w-4 h-4 text-primary focus:ring-primary">
+                                                <label class="text-gray-300">使用call()、apply()和bind()可以改变this指向</label>
+                                            </div>
+                                        </div>
+                                        <div class="bg-blue-500/10 border border-blue-500/30 rounded-lg p-3 mb-4">
+                                            <p class="text-sm text-blue-300">
+                                                <i class="fa fa-info-circle mr-1"></i>
+                                                正确答案是：B。箭头函数没有自己的this，它会继承外层作用域的this值。
+                                            </p>
+                                        </div>
+                                        <div class="flex items-center justify-between">
+                                            <span class="text-xs text-gray-400">最后错误: 2023-06-18</span>
+                                            <div class="flex items-center gap-3">
+                                                <button class="text-blue-500 hover:text-blue-400 transition-colors">
+                                                    <i class="fa fa-eye"></i>
+                                                </button>
+                                                <button class="text-green-500 hover:text-green-400 transition-colors">
+                                                    <i class="fa fa-check"></i>
+                                                </button>
+                                                <button class="text-red-500 hover:text-red-400 transition-colors">
+                                                    <i class="fa fa-trash"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="bg-gray-800/50 rounded-xl p-5 border border-gray-700 hover:border-primary/50 transition-colors">
+                                <div class="flex items-start gap-4">
+                                    <div class="w-10 h-10 rounded-full bg-red-500/20 flex items-center justify-center flex-shrink-0">
+                                        <i class="fa fa-times-circle text-red-500"></i>
+                                    </div>
+                                    <div class="flex-1">
+                                        <div class="flex items-center gap-2 mb-2">
+                                            <span class="px-2 py-1 bg-purple-500/20 text-purple-400 text-xs rounded-full">CSS</span>
+                                            <span class="px-2 py-1 bg-yellow-500/20 text-yellow-400 text-xs rounded-full">错误1次</span>
+                                        </div>
+                                        <h3 class="text-lg font-medium mb-3">CSS选择器优先级从高到低排序正确的是：</h3>
+                                        <div class="space-y-2 mb-4">
+                                            <div class="flex items-center gap-2">
+                                                <input type="radio" name="wrong2" class="w-4 h-4 text-primary focus:ring-primary">
+                                                <label class="text-gray-300">内联样式 > ID选择器 > 类选择器 > 标签选择器</label>
+                                            </div>
+                                            <div class="flex items-center gap-2">
+                                                <input type="radio" name="wrong2" class="w-4 h-4 text-primary focus:ring-primary" checked>
+                                                <label class="text-gray-300">ID选择器 > 内联样式 > 类选择器 > 标签选择器</label>
+                                            </div>
+                                            <div class="flex items-center gap-2">
+                                                <input type="radio" name="wrong2" class="w-4 h-4 text-primary focus:ring-primary">
+                                                <label class="text-gray-300">类选择器 > ID选择器 > 内联样式 > 标签选择器</label>
+                                            </div>
+                                            <div class="flex items-center gap-2">
+                                                <input type="radio" name="wrong2" class="w-4 h-4 text-primary focus:ring-primary">
+                                                <label class="text-gray-300">内联样式 > 类选择器 > ID选择器 > 标签选择器</label>
+                                            </div>
+                                        </div>
+                                        <div class="bg-blue-500/10 border border-blue-500/30 rounded-lg p-3 mb-4">
+                                            <p class="text-sm text-blue-300">
+                                                <i class="fa fa-info-circle mr-1"></i>
+                                                正确答案是：A。CSS选择器优先级从高到低为：内联样式 > ID选择器 > 类选择器 > 标签选择器。
+                                            </p>
+                                        </div>
+                                        <div class="flex items-center justify-between">
+                                            <span class="text-xs text-gray-400">最后错误: 2023-06-15</span>
+                                            <div class="flex items-center gap-3">
+                                                <button class="text-blue-500 hover:text-blue-400 transition-colors">
+                                                    <i class="fa fa-eye"></i>
+                                                </button>
+                                                <button class="text-green-500 hover:text-green-400 transition-colors">
+                                                    <i class="fa fa-check"></i>
+                                                </button>
+                                                <button class="text-red-500 hover:text-red-400 transition-colors">
+                                                    <i class="fa fa-trash"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 学习分析 -->
+                <section id="analysis" class="page-section hidden">
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                        <!-- 学习时间分布 -->
+                        <div class="glass-effect rounded-xl p-6 card-hover">
+                            <div class="flex items-center justify-between mb-6">
+                                <h3 class="text-xl font-semibold">学习时间分布</h3>
+                                <div class="flex items-center space-x-2">
+                                    <button class="px-3 py-1 text-xs bg-gray-800 hover:bg-gray-700 rounded-lg transition-colors">周</button>
+                                    <button class="px-3 py-1 text-xs bg-primary text-white rounded-lg">月</button>
+                                    <button class="px-3 py-1 text-xs bg-gray-800 hover:bg-gray-700 rounded-lg transition-colors">年</button>
+                                </div>
+                            </div>
+                            <div class="h-64">
+                                <canvas id="time-distribution-chart"></canvas>
+                            </div>
+                        </div>
+                        
+                        <!-- 知识点掌握程度 -->
+                        <div class="glass-effect rounded-xl p-6 card-hover">
+                            <div class="flex items-center justify-between mb-6">
+                                <h3 class="text-xl font-semibold">知识点掌握程度</h3>
+                                <select class="bg-gray-800 text-white text-sm rounded-lg px-3 py-1 focus:outline-none focus:ring-2 focus:ring-primary">
+                                    <option value="all">所有分类</option>
+                                    <option value="javascript">JavaScript</option>
+                                    <option value="css">CSS</option>
+                                    <option value="html">HTML</option>
+                                    <option value="react">React</option>
+                                </select>
+                            </div>
+                            <div class="h-64">
+                                <canvas id="knowledge-mastery-chart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                        <!-- 学习进度追踪 -->
+                        <div class="glass-effect rounded-xl p-6 card-hover">
+                            <div class="flex items-center justify-between mb-6">
+                                <h3 class="text-xl font-semibold">学习进度追踪</h3>
+                                <button class="text-gray-400 hover:text-white transition-colors">
+                                    <i class="fa fa-download"></i>
+                                </button>
+                            </div>
+                            <div class="h-64">
+                                <canvas id="progress-tracking-chart"></canvas>
+                            </div>
+                        </div>
+                        
+                        <!-- 错题分析 -->
+                        <div class="glass-effect rounded-xl p-6 card-hover">
+                            <div class="flex items-center justify-between mb-6">
+                                <h3 class="text-xl font-semibold">错题分析</h3>
+                                <select class="bg-gray-800 text-white text-sm rounded-lg px-3 py-1 focus:outline-none focus:ring-2 focus:ring-primary">
+                                    <option value="month">本月</option>
+                                    <option value="week">本周</option>
+                                    <option value="all">全部</option>
+                                </select>
+                            </div>
+                            <div class="h-64">
+                                <canvas id="wrong-questions-chart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 学习效率分析 -->
+                    <div class="glass-effect rounded-xl p-6 card-hover">
+                        <div class="flex items-center justify-between mb-6">
+                            <h3 class="text-xl font-semibold">学习效率分析</h3>
+                            <span class="text-sm text-gray-400">基于最近30天数据</span>
+                        </div>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                            <div class="bg-gray-800/50 rounded-xl p-5 border border-gray-700">
+                                <div class="flex items-center justify-between mb-2">
+                                    <h4 class="text-gray-400 font-medium">最佳学习时间</h4>
+                                    <div class="w-10 h-10 rounded-full bg-blue-500/20 flex items-center justify-center">
+                                        <i class="fa fa-clock-o text-blue-500"></i>
+                                    </div>
+                                </div>
+                                <p class="text-2xl font-bold">晚上 8-10点</p>
+                                <p class="text-gray-400 text-sm mt-1">
+                                    这个时间段你的正确率最高
+                                </p>
+                            </div>
+                            
+                            <div class="bg-gray-800/50 rounded-xl p-5 border border-gray-700">
+                                <div class="flex items-center justify-between mb-2">
+                                    <h4 class="text-gray-400 font-medium">平均专注时长</h4>
+                                    <div class="w-10 h-10 rounded-full bg-green-500/20 flex items-center justify-center">
+                                        <i class="fa fa-focus text-green-500"></i>
+                                    </div>
+                                </div>
+                                <p class="text-2xl font-bold">45分钟</p>
+                                <p class="text-gray-400 text-sm mt-1">
+                                    建议每45分钟休息5-10分钟
+                                </p>
+                            </div>
+                            
+                            <div class="bg-gray-800/50 rounded-xl p-5 border border-gray-700">
+                                <div class="flex items-center justify-between mb-2">
+                                    <h4 class="text-gray-400 font-medium">学习效率</h4>
+                                    <div class="w-10 h-10 rounded-full bg-purple-500/20 flex items-center justify-center">
+                                        <i class="fa fa-line-chart text-purple-500"></i>
+                                    </div>
+                                </div>
+                                <p class="text-2xl font-bold">85%</p>
+                                <p class="text-green-500 text-sm mt-1 flex items-center">
+                                    <i class="fa fa-arrow-up mr-1"></i>
+                                    <span>较上月提升10%</span>
+                                </p>
+                            </div>
+                        </div>
+                        
+                        <!-- 学习建议 -->
+                        <div class="bg-gray-800/50 rounded-xl p-5 border border-gray-700">
+                            <h4 class="font-semibold mb-4">AI学习建议</h4>
+                            <div class="space-y-3">
+                                <div class="flex items-start gap-3">
+                                    <div class="w-6 h-6 rounded-full bg-blue-500/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+                                        <i class="fa fa-lightbulb-o text-blue-500 text-xs"></i>
+                                    </div>
+                                    <p class="text-sm text-gray-300">根据你的学习数据，建议在晚上8-10点安排重要的学习内容，这个时间段你的学习效率最高。</p>
+                                </div>
+                                <div class="flex items-start gap-3">
+                                    <div class="w-6 h-6 rounded-full bg-blue-500/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+                                        <i class="fa fa-lightbulb-o text-blue-500 text-xs"></i>
+                                    </div>
+                                    <p class="text-sm text-gray-300">你的React Hooks掌握度较低，建议增加这部分的学习时间，重点关注useEffect和useState的使用。</p>
+                                </div>
+                                <div class="flex items-start gap-3">
+                                    <div class="w-6 h-6 rounded-full bg-blue-500/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+                                        <i class="fa fa-lightbulb-o text-blue-500 text-xs"></i>
+                                    </div>
+                                    <p class="text-sm text-gray-300">建议采用番茄工作法，每学习45分钟休息5-10分钟，这样可以提高学习效率和记忆效果。</p>
+                                </div>
+                                <div class="flex items-start gap-3">
+                                    <div class="w-6 h-6 rounded-full bg-blue-500/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+                                        <i class="fa fa-lightbulb-o text-blue-500 text-xs"></i>
+                                    </div>
+                                    <p class="text-sm text-gray-300">每周至少安排一次全面复习，重点回顾错题集和收藏题目，巩固知识点。</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            </main>
+        </div>
+    </div>
+
+    <!-- 添加题目模态框 -->
+    <div id="add-question-modal" class="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 hidden">
+        <div class="bg-gray-900 rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto animate-fade-in">
+            <div class="p-6 border-b border-gray-800">
+                <div class="flex items-center justify-between">
+                    <h3 class="text-xl font-semibold">添加题目</h3>
+                    <button class="close-modal text-gray-400 hover:text-white transition-colors">
+                        <i class="fa fa-times text-xl"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="p-6">
+                <form>
+                    <div class="mb-6">
+                        <label class="block text-sm font-medium text-gray-400 mb-2">题目内容</label>
+                        <textarea class="w-full bg-gray-800 border border-gray-700 text-white rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary" rows="4" placeholder="请输入题目内容..."></textarea>
+                    </div>
+                    
+                    <div class="mb-6">
+                        <label class="block text-sm font-medium text-gray-400 mb-2">选项</label>
+                        <div class="space-y-3">
+                            <div class="flex items-center gap-3">
+                                <div class="w-8 h-8 rounded-full bg-gray-800 flex items-center justify-center text-gray-400">A</div>
+                                <input type="text" class="flex-1 bg-gray-800 border border-gray-700 text-white rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-primary" placeholder="选项A">
+                                <div class="w-6 h-6 rounded-full border border-gray-700 flex items-center justify-center">
+                                    <input type="radio" name="correct-answer" class="w-4 h-4 text-primary focus:ring-primary">
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-3">
+                                <div class="w-8 h-8 rounded-full bg-gray-800 flex items-center justify-center text-gray-400">B</div>
+                                <input type="text" class="flex-1 bg-gray-800 border border-gray-700 text-white rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-primary" placeholder="选项B">
+                                <div class="w-6 h-6 rounded-full border border-gray-700 flex items-center justify-center">
+                                    <input type="radio" name="correct-answer" class="w-4 h-4 text-primary focus:ring-primary">
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-3">
+                                <div class="w-8 h-8 rounded-full bg-gray-800 flex items-center justify-center text-gray-400">C</div>
+                                <input type="text" class="flex-1 bg-gray-800 border border-gray-700 text-white rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-primary" placeholder="选项C">
+                                <div class="w-6 h-6 rounded-full border border-gray-700 flex items-center justify-center">
+                                    <input type="radio" name="correct-answer" class="w-4 h-4 text-primary focus:ring-primary">
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-3">
+                                <div class="w-8 h-8 rounded-full bg-gray-800 flex items-center justify-center text-gray-400">D</div>
+                                <input type="text" class="flex-1 bg-gray-800 border border-gray-700 text-white rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-primary" placeholder="选项D">
+                                <div class="w-6 h-6 rounded-full border border-gray-700 flex items-center justify-center">
+                                    <input type="radio" name="correct-answer" class="w-4 h-4 text-primary focus:ring-primary">
+                                </div>
+                            </div>
+                            <button type="button" class="flex items-center gap-2 text-primary hover:text-primary/80 transition-colors">
+                                <i class="fa fa-plus"></i>
+                                <span>添加选项</span>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-6">
+                        <label class="block text-sm font-medium text-gray-400 mb-2">解析</label>
+                        <textarea class="w-full bg-gray-800 border border-gray-700 text-white rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary" rows="3" placeholder="请输入题目解析..."></textarea>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-400 mb-2">分类</label>
+                            <select class="w-full bg-gray-800 border border-gray-700 text-white rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-primary">
+                                <option value="">请选择分类</option>
+                                <option value="javascript">JavaScript</option>
+                                <option value="css">CSS</option>
+                                <option value="html">HTML</option>
+                                <option value="react">React</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-400 mb-2">难度</label>
+                            <select class="w-full bg-gray-800 border border-gray-700 text-white rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-primary">
+                                <option value="">请选择难度</option>
+                                <option value="1">简单</option>
+                                <option value="2">中等</option>
+                                <option value="3">困难</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-400 mb-2">标签</label>
+                            <input type="text" class="w-full bg-gray-800 border border-gray-700 text-white rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-primary" placeholder="用逗号分隔多个标签">
+                        </div>
+                    </div>
+                    
+                    <div class="flex justify-end gap-4">
+                        <button type="button" class="close-modal px-6 py-2.5 bg-gray-800 hover:bg-gray-700 text-white rounded-lg transition-colors">
+                            取消
+                        </button>
+                        <button type="submit" class="px-6 py-2.5 bg-primary hover:bg-primary/90 text-white rounded-lg transition-colors">
+                            保存
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- JavaScript -->
+    <script>
+        // 初始化页面
+        document.addEventListener('DOMContentLoaded', () => {
+            // 初始化导航
+            initNavigation();
+            
+            // 初始化灵动岛
+            initDynamicIsland();
+            
+            // 初始化图表
+            initCharts();
+            
+            // 初始化闪卡翻转
+            initFlashcardFlip();
+            
+            // 初始化模态框
+            initModals();
+            
+            // 初始化文件导入
+            initFileImport();
+            
+            // 隐藏加载动画
+            document.getElementById('loading').classList.add('hidden');
+        });
+        
+        // 初始化导航
+        function initNavigation() {
+            const navLinks = document.querySelectorAll('.nav-link');
+            const pageSections = document.querySelectorAll('.page-section');
+            const pageTitle = document.getElementById('page-title');
+            
+            navLinks.forEach(link => {
+                link.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    
+                    // 移除所有活动状态
+                    navLinks.forEach(l => l.classList.remove('active'));
+                    pageSections.forEach(s => s.classList.add('hidden'));
+                    
+                    // 添加当前活动状态
+                    link.classList.add('active');
+                    
+                    // 显示对应内容
+                    const targetId = link.getAttribute('data-target');
+                    document.getElementById(targetId).classList.remove('hidden');
+                    
+                    // 更新页面标题
+                    const title = link.querySelector('span') ? link.querySelector('span').textContent : link.textContent;
+                    pageTitle.textContent = title;
+                    
+                    // 在移动端关闭侧边栏
+                    if (window.innerWidth < 768) {
+                        document.querySelector('aside').classList.add('translate-x-[-100%]');
+                    }
+                });
+            });
+            
+            // 移动端菜单按钮
+            const mobileMenuBtn = document.getElementById('mobile-menu-btn');
+            if (mobileMenuBtn) {
+                mobileMenuBtn.addEventListener('click', () => {
+                    const sidebar = document.querySelector('aside');
+                    sidebar.classList.toggle('translate-x-[-100%]');
+                });
+            }
+        }
+        
+        // 初始化灵动岛
+        function initDynamicIsland() {
+            const islandContainer = document.getElementById('dynamic-island-container');
+            const islandText = document.getElementById('island-text');
+            const island = document.getElementById('dynamic-island');
+            
+            // 更新灵动岛内容
+            function updateIsland(newText) {
+                // 文字变化动画
+                islandText.style.opacity = '0';
+                islandText.style.transform = 'scale(0.8)';
+                
+                setTimeout(() => {
+                    islandText.textContent = newText;
+                    islandText.style.opacity = '1';
+                    islandText.style.transform = 'scale(1)';
+                    
+                    // 根据文本长度调整宽度
+                    const baseWidth = 120; // 最小宽度
+                    const textWidth = islandText.offsetWidth;
+                    island.style.width = `${Math.max(baseWidth, textWidth + 70)}px`;
+                }, 300);
+            }
+            
+            // 监听滚动以更新灵动岛
+            window.addEventListener('scroll', () => {
+                const scrollPosition = window.scrollY;
+                const windowHeight = window.innerHeight;
+                
+                // 根据滚动位置更新灵动岛
+                const sections = document.querySelectorAll('.page-section');
+                sections.forEach(section => {
+                    const sectionTop = section.offsetTop;
+                    const sectionHeight = section.offsetHeight;
+                    
+                    if (scrollPosition >= sectionTop - windowHeight / 3 && 
+                        scrollPosition < sectionTop + sectionHeight - windowHeight / 3) {
+                        const sectionId = section.id;
+                        let text = '开始学习';
+                        
+                        switch (sectionId) {
+                            case 'dashboard':
+                                text = '学习概览';
+                                break;
+                            case 'questions':
+                                text = '题库管理';
+                                break;
+                            case 'quiz':
+                                text = '开始刷题';
+                                break;
+                            case 'flashcards':
+                                text = '闪卡学习';
+                                break;
+                            case 'favorites':
+                                text = '收藏题目';
+                                break;
+                            case 'wrong-questions':
+                                text = '错题复习';
+                                break;
+                            case 'analysis':
+                                text = '学习分析';
+                                break;
+                        }
+                        
+                        updateIsland(text);
+                    }
+                });
+            });
+            
+            // 灵动岛点击事件
+            island.addEventListener('click', () => {
+                const currentText = islandText.textContent;
+                
+                // 根据当前文本执行不同操作
+                switch (currentText) {
+                    case '开始刷题':
+                        document.querySelector('[data-target="quiz"]').click();
+                        break;
+                    case '闪卡学习':
+                        document.querySelector('[data-target="flashcards"]').click();
+                        break;
+                    case '错题复习':
+                        document.querySelector('[data-target="wrong-questions"]').click();
+                        break;
+                    default:
+                        // 滚动到顶部
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                }
+            });
+        }
+        
+        // 初始化图表
+        function initCharts() {
+            // 检查Chart.js是否已加载
+            if (typeof Chart === 'undefined') {
+                console.error('Chart.js not loaded');
+                return;
+            }
+            
+            // 设置Chart.js全局配置
+            Chart.defaults.color = '#94a3b8';
+            Chart.defaults.borderColor = 'rgba(148, 163, 184, 0.2)';
+            Chart.defaults.font.family = "'Inter', 'system-ui', 'sans-serif'";
+            
+            // 小型图表配置
+            const miniChartConfig = {
+                type: 'line',
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            enabled: false
+                        }
+                    },
+                    scales: {
+                        x: {
+                            display: false
+                        },
+                        y: {
+                            display: false
+                        }
+                    },
+                    elements: {
+                        point: {
+                            radius: 0
+                        },
+                        line: {
+                            tension: 0.4
+                        }
+                    }
+                }
+            };
+            
+            // 初始化小型图表
+            const timeChart = document.getElementById('time-chart');
+            if (timeChart) {
+                new Chart(timeChart, {
+                    ...miniChartConfig,
+                    data: {
+                        labels: ['', '', '', '', '', '', ''],
+                        datasets: [{
+                            data: [12, 19, 15, 17, 22, 24, 28],
+                            borderColor: '#3b82f6',
+                            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                            fill: true
+                        }]
+                    }
+                });
+            }
+            
+            const questionsChart = document.getElementById('questions-chart');
+            if (questionsChart) {
+                new Chart(questionsChart, {
+                    ...miniChartConfig,
+                    data: {
+                        labels: ['', '', '', '', '', '', ''],
+                        datasets: [{
+                            data: [8, 12, 10, 15, 18, 22, 28],
+                            borderColor: '#22c55e',
+                            backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                            fill: true
+                        }]
+                    }
+                });
+            }
+            
+            const rateChart = document.getElementById('rate-chart');
+            if (rateChart) {
+                new Chart(rateChart, {
+                    ...miniChartConfig,
+                    data: {
+                        labels: ['', '', '', '', '', '', ''],
+                        datasets: [{
+                            data: [65, 68, 70, 72, 75, 74, 76],
+                            borderColor: '#3b82f6',
+                            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                            fill: true
+                        }]
+                    }
+                });
+            }
+            
+            const memoryChart = document.getElementById('memory-chart');
+            if (memoryChart) {
+                new Chart(memoryChart, {
+                    ...miniChartConfig,
+                    data: {
+                        labels: ['', '', '', '', '', '', ''],
+                        datasets: [{
+                            data: [45, 50, 55, 60, 65, 68, 68],
+                            borderColor: '#a855f7',
+                            backgroundColor: 'rgba(168, 85, 247, 0.1)',
+                            fill: true
+                        }]
+                    }
+                });
+            }
+            
+            // 学习时间趋势图
+            const studyTimeChart = document.getElementById('study-time-chart');
+            if (studyTimeChart) {
+                new Chart(studyTimeChart, {
+                    type: 'line',
+                    data: {
+                        labels: ['1月', '2月', '3月', '4月', '5月', '6月'],
+                        datasets: [{
+                            label: '学习时间（小时）',
+                            data: [45, 52, 48, 61, 58, 72],
+                            borderColor: '#3b82f6',
+                            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                            tension: 0.4,
+                            fill: true
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                display: false
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                grid: {
+                                    color: 'rgba(148, 163, 184, 0.1)'
+                                }
+                            },
+                            x: {
+                                grid: {
+                                    display: false
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+            
+            // 知识点掌握情况图
+            const knowledgeChart = document.getElementById('knowledge-chart');
+            if (knowledgeChart) {
+                new Chart(knowledgeChart, {
+                    type: 'radar',
+                    data: {
+                        labels: ['JavaScript', 'CSS', 'HTML', 'React', 'Vue', 'Node.js'],
+                        datasets: [{
+                            label: '掌握程度',
+                            data: [75, 82, 90, 45, 30, 60],
+                            backgroundColor: 'rgba(59, 130, 246, 0.2)',
+                            borderColor: '#3b82f6',
+                            pointBackgroundColor: '#3b82f6',
+                            pointBorderColor: '#fff',
+                            pointHoverBackgroundColor: '#fff',
+                            pointHoverBorderColor: '#3b82f6'
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            r: {
+                                angleLines: {
+                                    color: 'rgba(148, 163, 184, 0.1)'
+                                },
+                                grid: {
+                                    color: 'rgba(148, 163, 184, 0.1)'
+                                },
+                                pointLabels: {
+                                    color: '#94a3b8'
+                                },
+                                suggestedMin: 0,
+                                suggestedMax: 100
+                            }
+                        }
+                    }
+                });
+            }
+            
+            // 时间分布图表
+            const timeDistributionChart = document.getElementById('time-distribution-chart');
+            if (timeDistributionChart) {
+                new Chart(timeDistributionChart, {
+                    type: 'bar',
+                    data: {
+                        labels: ['周一', '周二', '周三', '周四', '周五', '周六', '周日'],
+                        datasets: [{
+                            label: '学习时间（小时）',
+                            data: [2.5, 1.8, 3.2, 2.1, 2.8, 4.2, 3.5],
+                            backgroundColor: '#3b82f6'
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                display: false
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                grid: {
+                                    color: 'rgba(148, 163, 184, 0.1)'
+                                }
+                            },
+                            x: {
+                                grid: {
+                                    display: false
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+            
+            // 知识点掌握程度图表
+            const knowledgeMasteryChart = document.getElementById('knowledge-mastery-chart');
+            if (knowledgeMasteryChart) {
+                new Chart(knowledgeMasteryChart, {
+                    type: 'doughnut',
+                    data: {
+                        labels: ['掌握', '熟悉', '了解', '陌生'],
+                        datasets: [{
+                            data: [45, 30, 15, 10],
+                            backgroundColor: [
+                                '#22c55e',
+                                '#3b82f6',
+                                '#f59e0b',
+                                '#ef4444'
+                            ],
+                            borderWidth: 0
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: 'bottom'
+                            }
+                        },
+                        cutout: '70%'
+                    }
+                });
+            }
+            
+            // 进度追踪图表
+            const progressTrackingChart = document.getElementById('progress-tracking-chart');
+            if (progressTrackingChart) {
+                new Chart(progressTrackingChart, {
+                    type: 'line',
+                    data: {
+                        labels: ['1月', '2月', '3月', '4月', '5月', '6月'],
+                        datasets: [{
+                            label: '完成题目数',
+                            data: [120, 180, 250, 320, 420, 520],
+                            borderColor: '#22c55e',
+                            backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                            tension: 0.4,
+                            fill: true
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                display: false
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                grid: {
+                                    color: 'rgba(148, 163, 184, 0.1)'
+                                }
+                            },
+                            x: {
+                                grid: {
+                                    display: false
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+            
+            // 错题分析图表
+            const wrongQuestionsChart = document.getElementById('wrong-questions-chart');
+            if (wrongQuestionsChart) {
+                new Chart(wrongQuestionsChart, {
+                    type: 'pie',
+                    data: {
+                        labels: ['JavaScript', 'CSS', 'HTML', 'React', 'Vue'],
+                        datasets: [{
+                            data: [8, 6, 3, 7, 2],
+                            backgroundColor: [
+                                '#3b82f6',
+                                '#a855f7',
+                                '#22c55e',
+                                '#f59e0b',
+                                '#ef4444'
+                            ],
+                            borderWidth: 0
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: 'bottom'
+                            }
+                        }
+                    }
+                });
+            }
+        }
+        
+        // 初始化闪卡翻转
+        function initFlashcardFlip() {
+            const flashcard = document.getElementById('flashcard');
+            if (flashcard) {
+                flashcard.addEventListener('click', () => {
+                    flashcard.classList.toggle('rotate-y-180');
+                });
+            }
+        }
+        
+        // 初始化模态框
+        function initModals() {
+            const addQuestionBtn = document.getElementById('add-question-btn');
+            const addQuestionModal = document.getElementById('add-question-modal');
+            const closeModalBtns = document.querySelectorAll('.close-modal');
+            
+            if (addQuestionBtn && addQuestionModal) {
+                addQuestionBtn.addEventListener('click', () => {
+                    addQuestionModal.classList.remove('hidden');
+                    document.body.style.overflow = 'hidden';
+                });
+            }
+            
+            closeModalBtns.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const modal = btn.closest('.fixed');
+                    if (modal) {
+                        modal.classList.add('hidden');
+                        document.body.style.overflow = '';
+                    }
+                });
+            });
+            
+            // 点击模态框外部关闭
+            const modals = document.querySelectorAll('.fixed.inset-0');
+            modals.forEach(modal => {
+                modal.addEventListener('click', (e) => {
+                    if (e.target === modal) {
+                        modal.classList.add('hidden');
+                        document.body.style.overflow = '';
+                    }
+                });
+            });
+        }
+        
+        // 初始化文件导入
+        function initFileImport() {
+            const fileImport = document.getElementById('file-import');
+            if (fileImport) {
+                fileImport.addEventListener('change', (e) => {
+                    const file = e.target.files[0];
+                    if (!file) return;
+                    
+                    // 检查文件大小（200MB限制）
+                    const maxSize = 200 * 1024 * 1024; // 200MB
+                    if (file.size > maxSize) {
+                        alert('文件大小不能超过200MB！');
+                        return;
+                    }
+                    
+                    const fileExtension = file.name.split('.').pop().toLowerCase();
+                    
+                    // 显示加载动画
+                    document.getElementById('loading').classList.remove('hidden');
+                    
+                    if (fileExtension === 'json') {
+                        importJsonFile(file);
+                    } else if (fileExtension === 'txt') {
+                        importTxtFile(file);
+                    } else if (fileExtension === 'pdf') {
+                        importPdfFile(file);
+                    } else {
+                        alert('不支持的文件格式！请选择PDF、TXT或JSON文件。');
+                        document.getElementById('loading').classList.add('hidden');
+                    }
+                });
+            }
+        }
+        
+        // 导入JSON文件
+        function importJsonFile(file) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    let importedCount = 0;
+                    
+                    // 处理题目数据
+                    if (data.questions && Array.isArray(data.questions)) {
+                        // 这里应该处理导入的题目数据
+                        importedCount = data.questions.length;
+                    }
+                    
+                    // 处理闪卡数据
+                    if (data.flashcards && Array.isArray(data.flashcards)) {
+                        // 这里应该处理导入的闪卡数据
+                        importedCount += data.flashcards.length;
+                    }
+                    
+                    document.getElementById('loading').classList.add('hidden');
+                    alert(`成功导入 ${importedCount} 条数据！`);
+                } catch (error) {
+                    console.error('JSON解析错误:', error);
+                    document.getElementById('loading').classList.add('hidden');
+                    alert('JSON文件格式错误，请检查文件内容！');
+                }
+            };
+            reader.readAsText(file);
+        }
+        
+        // 导入TXT文件
+        function importTxtFile(file) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const content = e.target.result;
+                    // 这里应该处理导入的TXT文件内容
+                    
+                    document.getElementById('loading').classList.add('hidden');
+                    alert('TXT文件导入功能正在开发中，敬请期待！');
+                } catch (error) {
+                    console.error('TXT解析错误:', error);
+                    document.getElementById('loading').classList.add('hidden');
+                    alert('TXT文件格式错误，请检查文件内容！');
+                }
+            };
+            reader.readAsText(file);
+        }
+        
+        // 导入PDF文件
+        function importPdfFile(file) {
+            // 检查是否已加载PDF.js库
+            if (typeof pdfjsLib === 'undefined') {
+                // 动态加载PDF.js库
+                const script = document.createElement('script');
+                script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js';
+                script.onload = () => {
+                    // 设置PDF.js工作器
+                    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
+                    processPdfFile(file);
+                };
+                script.onerror = () => {
+                    document.getElementById('loading').classList.add('hidden');
+                    alert('加载PDF解析库失败，请稍后重试！');
+                };
+                document.head.appendChild(script);
+            } else {
+                processPdfFile(file);
+            }
+        }
+        
+        // 处理PDF文件内容
+        function processPdfFile(file) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const data = new Uint8Array(e.target.result);
+                
+                pdfjsLib.getDocument(data).promise.then(pdf => {
+                    let totalPages = pdf.numPages;
+                    let processedPages = 0;
+                    let extractedText = '';
+                    
+                    // 提取所有页面的文本
+                    const extractTextFromPage = (pageNum) => {
+                        pdf.getPage(pageNum).then(page => {
+                            return page.getTextContent();
+                        }).then(textContent => {
+                            const pageText = textContent.items.map(item => item.str).join(' ');
+                            extractedText += pageText + '\n\n';
+                            
+                            processedPages++;
+                            
+                            // 更新加载进度
+                            const progress = Math.round((processedPages / totalPages) * 100);
+                            document.querySelector('#loading p').textContent = `正在解析PDF (${progress}%)...`;
+                            
+                            if (processedPages < totalPages) {
+                                extractTextFromPage(processedPages + 1);
+                            } else {
+                                // 所有页面提取完成，开始解析题目
+                                parsePdfTextToQuestions(extractedText);
+                            }
+                        }).catch(error => {
+                            console.error('提取页面文本失败:', error);
+                            processedPages++;
+                            
+                            if (processedPages < totalPages) {
+                                extractTextFromPage(processedPages + 1);
+                            } else {
+                                parsePdfTextToQuestions(extractedText);
+                            }
+                        });
+                    };
+                    
+                    // 开始提取第一页
+                    extractTextFromPage(1);
+                }).catch(error => {
+                    console.error('解析PDF失败:', error);
+                    document.getElementById('loading').classList.add('hidden');
+                    alert('解析PDF文件失败，请检查文件是否损坏！');
+                });
+            };
+            reader.readAsArrayBuffer(file);
+        }
+        
+        // 解析PDF文本为题目
+        function parsePdfTextToQuestions(text) {
+            try {
+                // 这里应该实现PDF文本解析为题目的逻辑
+                // 由于这是一个演示，我们简化处理
+                
+                document.getElementById('loading').classList.add('hidden');
+                document.querySelector('#loading p').textContent = '加载中...';
+                
+                alert('PDF文件导入功能正在开发中，敬请期待！');
+            } catch (error) {
+                console.error('解析PDF文本失败:', error);
+                document.getElementById('loading').classList.add('hidden');
+                document.querySelector('#loading p').textContent = '加载中...';
+                alert('解析PDF文本失败，请稍后重试！');
+            }
+        }
+        
+        // 为高级文字设置数据属性
+        document.querySelectorAll('.premium-text').forEach(el => {
+            el.setAttribute('data-text', el.textContent);
+        });
+    </script>
+</body>
+</html>
